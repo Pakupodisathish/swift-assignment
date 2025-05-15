@@ -216,14 +216,36 @@ app.put('/users', (req, res, next) => __awaiter(void 0, void 0, void 0, function
 }));
 // 6. GET /users (to get all users)
 app.get('/users', (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const sortField = req.query.sort || 'name'; // Default sort field
+    const sortOrder = (req.query.order === 'desc' ? -1 : 1); // Default sort order
+    if (isNaN(page) || page < 1) {
+        return res.status(400).json({ error: 'Invalid page number' });
+    }
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+        return res.status(400).json({ error: 'Invalid limit value' });
+    }
     try {
         const db = (0, db_1.getDb)();
         const usersCollection = db.collection('users');
-        const users = yield usersCollection.find().toArray();
-        res.status(200).json(users);
+        const skip = (page - 1) * limit;
+        const sort = { [sortField]: sortOrder };
+        const users = yield usersCollection
+            .find({}, { sort, skip, limit })
+            .toArray();
+        const totalUsers = yield usersCollection.countDocuments();
+        const totalPages = Math.ceil(totalUsers / limit);
+        res.status(200).json({
+            users,
+            page,
+            limit,
+            totalPages,
+            totalUsers,
+        });
     }
     catch (error) {
-        console.error('Error fetching all users:', error);
+        console.error('Error fetching users:', error);
         next(error);
     }
 }));
